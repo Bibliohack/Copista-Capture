@@ -1,4 +1,8 @@
 #!/bin/bash
+
+cp $1 $2
+exit 0
+
 #
 # Developed by Fred Weinhaus 2/25/2013 .......... revised 8/12/2015
 #
