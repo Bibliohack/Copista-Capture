@@ -223,4 +223,5 @@ __marimo__/
 config/*.json
 example_projects/**/
 sandbox/
+capturator/
 
