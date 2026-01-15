@@ -1,0 +1,136 @@
+Perfecto, ahora te explico en detalle el parámetro `--wait-event` de gphoto2:
+
+## **¿Qué es `--wait-event`?**
+
+`--wait-event` permite que gphoto2 espere notificaciones de la cámara sobre eventos específicos, como cuando se añade un objeto (imagen capturada). Es especialmente útil para **captura con cable (tethered capture)** y para **sincronización**.
+
+## **Sintaxis y Parámetros:**
+
+```bash
+--wait-event TIEMPO
+--wait-event-and-download TIEMPO
+```
+
+### **Formatos de TIEMPO:**
+- **Segundos:** `5s`, `10s` 
+- **Milisegundos:** `500ms`, `1000ms`
+- **Número de eventos:** `1`, `5`, `10`
+- **String de coincidencia:** `"FILEADDED"`, `"CAPTURE"`
+
+## **Tipos de Eventos que Detecta:**
+
+### **Eventos Principales:**
+- **`GP_EVENT_FILE_ADDED`** - Nueva imagen añadida
+- **`GP_EVENT_FOLDER_ADDED`** - Nueva carpeta creada
+- **`GP_EVENT_CAPTURE_COMPLETE`** - Captura completada
+- **`GP_EVENT_TIMEOUT`** - Tiempo agotado sin eventos
+- **`GP_EVENT_UNKNOWN`** - Evento desconocido
+
+## **Usos Prácticos para tu Caso:**
+
+### **1. Verificar que la Cámara está Lista:**
+```bash
+# Esperar 1 segundo a que la cámara esté disponible
+gphoto2 --wait-event=1s
+
+# Si devuelve 0, la cámara está lista
+if [ $? -eq 0 ]; then
+    echo "Cámara lista"
+else
+    echo "Cámara ocupada"
+fi
+```
+
+### **2. Detectar Finalización de Captura:**
+```bash
+# Capturar imagen y esperar confirmación
+gphoto2 --capture-image &
+PID=$!
+gphoto2 --wait-event=5s
+wait $PID
+```
+
+### **3. Captura Tethered (Presionar Botón en Cámara):**
+```bash
+# Esperar a que el usuario presione el botón de la cámara
+echo "Presiona el botón de la cámara..."
+gphoto2 --wait-event-and-download=30s
+```
+
+### **4. Loop de Eventos (Monitoreo Continuo):**
+```bash
+# Monitorear eventos continuamente
+while true; do
+    EVENT=$(gphoto2 --wait-event=1s 2>&1)
+    if echo "$EVENT" | grep -q "FILEADDED"; then
+        echo "Nueva imagen detectada"
+        gphoto2 --get-all-files --delete-all-files
+    fi
+done
+```
+
+## **Diferencias entre `--wait-event` y `--wait-event-and-download`:**
+
+### **`--wait-event`:**
+- Solo **espera** el evento
+- **No descarga** automáticamente
+- Útil para **sincronización** y **detección**
+
+### **`--wait-event-and-download`:**
+- **Espera** el evento **Y descarga** la imagen automáticamente
+- Útil para flujos de trabajo de estudio donde presionar el obturador en la cámara transfiere inmediatamente la imagen a la máquina
+- Ideal para **captura tethered**
+
+## **Aplicación en tu Script Dual:**
+
+Voy a añadir una función de diagnóstico con `--wait-event`:## **Ejemplos Prácticos de `--wait-event`:**
+
+### **1. Diagnóstico de Estado:**
+```bash
+# Verificar si la cámara está ocupada (I/O in progress)
+gphoto2 --wait-event=100ms
+# Si devuelve inmediatamente = cámara disponible
+# Si tarda = cámara ocupada
+```
+
+### **2. Sincronización de Capturas:**
+```bash
+# Capturar y esperar confirmación
+gphoto2 --capture-image
+gphoto2 --wait-event=3s  # Esperar a que termine el procesamiento
+gphoto2 --get-all-files
+```
+
+### **3. Captura Manual Remota:**
+```bash
+# El usuario presiona botón físico, la PC descarga automáticamente
+gphoto2 --wait-event-and-download=60s
+```
+
+### **4. Loop de Eventos con Timeout:**
+```bash
+while true; do
+    EVENT=$(timeout 5s gphoto2 --wait-event=2s)
+    case $? in
+        0) echo "Evento: $EVENT" ;;
+        124) echo "Timeout - Sin eventos" ;;
+        *) echo "Error de comunicación" ;;
+    esac
+done
+```
+
+## **Ventajas para Solucionar I/O Errors:**
+
+### **1. Detección Proactiva:**
+- Detecta si la cámara está procesando **antes** de intentar nueva captura
+- Evita el error (-110) esperando a que esté disponible
+
+### **2. Sincronización Inteligente:**
+- No usa delays fijos (que pueden ser insuficientes o excesivos)
+- Espera **exactamente** hasta que la cámara esté lista
+
+### **3. Captura Tethered:**
+- Permite **captura híbrida**: automática + manual
+- El usuario puede disparar manualmente cuando sea necesario
+
+El script actualizado ahora incluye **diagnóstico con wait-event**, **modo tethered** y **verificación inteligente de estado** que debe resolver completamente los problemas de I/O in progress.
